@@ -44,7 +44,7 @@
   .cap input{ flex:1; min-width:0; height:100%; border:0; outline:0; background:none; font: 500 17px var(--f-ui); color:var(--ink); }
   .cap input::placeholder{ color:var(--ink-2); font-weight:400; }
   .tools{ flex:none; display:flex; align-items:center; gap:2px; margin-right:-6px; }
-  .cb{ flex:none; height:36px; min-width:36px; padding:0 8px; border-radius:999px; display:grid; place-items:center; font: 600 13px var(--f-ui); color:var(--ink-2); }
+  .cb{ box-sizing:border-box; flex:none; height:36px; min-width:36px; padding:0 8px; border-radius:999px; display:grid; place-items:center; font: 600 13px var(--f-ui); color:var(--ink-2); }
   .cb svg{ width:19px; height:19px; fill:none; stroke:currentColor; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round; }
   .cb.mode{ padding:0 11px; box-shadow: inset 0 0 0 1.5px var(--line-2); }
   .pip{ --s:34px; flex:none; width:var(--s); height:calc(var(--s) * .88); display:flex; gap:calc(var(--s) * .12); align-items:center; justify-content:center; background:var(--ink); border-radius: 48% 52% 46% 54% / 58% 58% 42% 42%; }
