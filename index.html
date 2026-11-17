@@ -9,67 +9,113 @@
 <meta name="apple-mobile-web-app-title" content="Planner">
 <title>Allen’s Planner</title>
 <link rel="preconnect" href="https://script.google.com">
+<link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Spline+Sans+Mono:wght@500&display=swap" rel="stylesheet">
 <!--
+  這個檔案由 tools/build-entry.mjs 從 web/entry.template.html 產生，不要直接改 web/index.html。
+
   為什麼要這一層：
-  1. 手機瀏覽器登入 Google 時，script.google.com 會把網址改成 /macros/u/1/s/…，公開的 Apps Script 網頁在那種網址下打不開。
-     從這個網域用 iframe 打開就不會被改。
-  2. Google 準備網頁要 1～2 秒，這段時間 iframe 是空白的。這一頁先畫出同一個開場畫面（吉祥物、輸入框、進度條），
-     等真正的網頁說「我好了」再淡出，看起來就是同一個畫面接下去。期間打的字會交給真正的輸入框。
+  1. 手機瀏覽器登入 Google 時，script.google.com 會把網址改成 /macros/u/1/s/…，公開的 Apps Script 網頁在那種網址下打不開；
+     從這個網域用 iframe 打開就不會。
+  2. Google 準備網頁要 1～2 秒，這段時間 iframe 是空白。這一頁先畫出跟 App 載入畫面一模一樣的場景
+     （吉祥物、散落的區塊圖示、輸入框、進度條），App 準備好後告訴它：開始的時間、進度、已點亮幾個圖示、你打了什麼字，
+     App 照著接下去，回報「好了」這一層才淡出。
 -->
 <style>
-  :root{ --bg: oklch(0.965 0 0); --ink: oklch(0.2 0 0); --line: oklch(0.9 0 0); }
+  :root{ --bg: oklch(0.965 0 0); --surface:#fff; --ink: oklch(0.2 0 0); --ink-2: oklch(0.42 0 0); --line: oklch(0.9 0 0); --line-2: oklch(0.8 0 0);
+    --f-ui: "Bricolage Grotesque", -apple-system, "PingFang TC", "Noto Sans TC", sans-serif; --f-mono: "Spline Sans Mono", ui-monospace, monospace;
+    --out: cubic-bezier(.16,1,.3,1); --spring: cubic-bezier(.2,1.3,.3,1); }
+  [data-s]{ --c: oklch(0.64 0.13 var(--h)); --mid: oklch(0.86 0.08 var(--h)); --tint: oklch(0.95 0.035 var(--h)); --deep: oklch(0.38 0.1 var(--h)); }
+  [data-s=tutor]{--h:50} [data-s=apex]{--h:255} [data-s=school]{--h:150} [data-s=senior]{--h:305}
+  [data-s=exchange]{--h:90} [data-s=mac]{--h:215} [data-s=ai]{--h:350} [data-s=stocks]{--h:185}
+  [data-s=misc]{ --c: oklch(0.6 0 0); --mid: oklch(0.84 0 0); --tint: oklch(0.94 0 0); --deep: oklch(0.34 0 0); }
   html, body{ margin:0; height:100%; background:var(--bg); overflow:hidden; }
   iframe{ position:fixed; inset:0; width:100%; height:100%; border:0; }
-  .pre{ position:fixed; inset:0; z-index:2; background:var(--bg); transition: opacity .16s ease; }
-  .pre.out{ opacity:0; pointer-events:none; }
-  .cap{ position:absolute; top:50%; left:50%; translate:-50% -50%; width:min(640px, calc(100% - 24px)); height:64px; box-sizing:border-box; display:flex; align-items:center; gap:12px; padding:0 14px 0 16px; border-radius:999px;
-    background: linear-gradient(180deg, oklch(1 0 0 / .72), oklch(1 0 0 / .5)); border:1px solid oklch(1 0 0 / .85);
-    box-shadow: inset 0 1px 0 #fff, 0 0 0 1px oklch(0.2 0 0 / .06), 0 16px 40px -18px oklch(0.2 0 0 / .35); }
-  .cap input{ flex:1; min-width:0; height:100%; border:0; outline:0; background:none; font: 500 17px -apple-system, "PingFang TC", sans-serif; color:var(--ink); }
-  .cap input::placeholder{ color: oklch(0.42 0 0); font-weight:400; }
-  .eyes{ flex:none; width:34px; height:30px; display:flex; gap:4px; align-items:center; justify-content:center; background:var(--ink); border-radius: 48% 52% 46% 54% / 58% 58% 42% 42%; }
-  .eyes i{ width:9px; height:11px; border-radius:50%; background:#fff; display:grid; place-items:center; } .eyes b{ width:4.5px; height:4.5px; border-radius:50%; background:var(--ink); }
-  .bar{ position:absolute; height:4px; border-radius:4px; background:var(--line); overflow:hidden; }
-  .bar i{ display:block; height:100%; width:100%; border-radius:4px; background:var(--ink); transform-origin:0 50%; transform:scaleX(.04); animation: grow 2.4s cubic-bezier(.2,.6,.2,1) forwards; }
-  @keyframes grow{ to{ transform:scaleX(.42); } }
-  .mz{ position:absolute; left:0; top:0; }
-  .mz svg{ display:block; width:100%; height:auto; overflow:visible; }
-  .body{ fill:var(--ink); } .limb{ stroke:var(--ink); stroke-width:8.5; stroke-linecap:round; fill:none; } .eye{ fill:#fff; } .pupil{ fill:var(--ink); }
-  .bob{ animation: bob .42s ease-in-out infinite alternate; } @keyframes bob{ to{ transform: translateY(-5px) rotate(-2.5deg); } }
-  .legL{ transform-box:view-box; transform-origin:46px 90px; animation: step .42s ease-in-out infinite alternate; }
-  .legR{ transform-box:view-box; transform-origin:74px 90px; animation: step .42s ease-in-out infinite alternate-reverse; }
-  @keyframes step{ from{ transform: rotate(-26deg); } to{ transform: rotate(24deg); } }
-  .armL{ transform-box:view-box; transform-origin:26px 68px; animation: swing .42s ease-in-out infinite alternate-reverse; }
-  .armR{ transform-box:view-box; transform-origin:94px 68px; animation: swing .42s ease-in-out infinite alternate; }
-  @keyframes swing{ from{ transform: rotate(-20deg); } to{ transform: rotate(20deg); } }
-  @media (max-width: 760px){ .cap{ height:58px; padding-left:12px; } .cap input{ font-size:16px; } }
-  @media (prefers-reduced-motion: reduce){ *{ animation:none !important; } }
+  .ldr{ position:fixed; inset:0; z-index:2; background:var(--bg); overflow:hidden; transition: opacity .14s linear; }
+  .ldr.out{ opacity:0; pointer-events:none; }
+  /* ── everything below mirrors app/styles.html + app/loader.html ── */
+  .ic{ display:block; width:100%; height:100%; overflow:visible; }
+  .ic .a{ fill: var(--c); } .ic .b{ fill: var(--mid); } .ic .d{ fill: var(--deep); } .ic .w{ fill:#fff; }
+  .ic .s{ fill:none; stroke: var(--deep); stroke-width:2.6; stroke-linecap:round; stroke-linejoin:round; } .ic .sw{ fill:none; stroke:#fff; stroke-width:2.2; stroke-linecap:round; opacity:.8; }
+  .cap{ position:fixed; z-index:3; top:50%; left:50%; translate:-50% -50%; width:min(640px, calc(100% - 24px)); height:64px; box-sizing:border-box; display:flex; align-items:center; gap:12px; padding:0 14px 0 16px; border-radius:999px;
+    background: linear-gradient(180deg, oklch(1 0 0 / .72), oklch(1 0 0 / .5)); -webkit-backdrop-filter: blur(22px) saturate(190%); backdrop-filter: blur(22px) saturate(190%); border:1px solid oklch(1 0 0 / .85);
+    box-shadow: inset 0 1px 0 #fff, inset 0 -8px 14px -10px oklch(1 0 0 / .8), 0 0 0 1px oklch(0.2 0 0 / .06), 0 16px 40px -18px oklch(0.2 0 0 / .35), 0 2px 6px oklch(0.2 0 0 / .06); }
+  .cap input{ flex:1; min-width:0; height:100%; border:0; outline:0; background:none; font: 500 17px var(--f-ui); color:var(--ink); }
+  .cap input::placeholder{ color:var(--ink-2); font-weight:400; }
+  .pip{ --s:34px; flex:none; width:var(--s); height:calc(var(--s) * .88); display:flex; gap:calc(var(--s) * .12); align-items:center; justify-content:center; background:var(--ink); border-radius: 48% 52% 46% 54% / 58% 58% 42% 42%; }
+  .pip i{ width:calc(var(--s) * .265); height:calc(var(--s) * .32); border-radius:50%; background:#fff; display:grid; place-items:center; animation: blink 4.8s infinite; }
+  .pip b{ width:calc(var(--s) * .135); height:calc(var(--s) * .135); border-radius:50%; background: oklch(0.2 0 0); }
+  @keyframes blink{ 0%,93%,100%{ transform: scaleY(1); } 96%{ transform: scaleY(.08); } }
+  .go{ flex:none; height:36px; padding:0 10px 0 12px; display:flex; align-items:center; gap:8px; font: 600 13px var(--f-ui); color:var(--ink-2); }
+  kbd{ display:inline-grid; place-items:center; min-width:22px; height:22px; padding:0 5px; border-radius:5px; font: 500 11px var(--f-mono); background:#fff; border:1px solid var(--line-2); border-bottom-width:2px; color:var(--ink-2); box-sizing:border-box; }
+  .pbar{ position:fixed; z-index:3; height:4px; border-radius:4px; background: var(--line); overflow:hidden; }
+  .pbar i{ display:block; height:100%; border-radius:4px; background: var(--ink); transform-origin:0 50%; transform: scaleX(var(--p,0)); }
+  .mz{ position:absolute; left:0; top:0; transform-origin:50% 100%; }
+  svg.m{ display:block; width:100%; height:auto; overflow:visible; }
+  .m .body{ fill: var(--ink); } .m .limb{ stroke: var(--ink); stroke-width:8.5; stroke-linecap:round; fill:none; } .m .eye{ fill:#fff; } .m .pupil{ fill: var(--ink); }
+  .m .lid{ transform-box: fill-box; transform-origin:50% 50%; animation: ldBlink 3.4s infinite; } @keyframes ldBlink{ 0%,91%,100%{ transform: scaleY(1); } 95%{ transform: scaleY(.08); } }
+  .walk .m .bob{ animation: ldBob .42s ease-in-out infinite alternate; } @keyframes ldBob{ from{ transform: translateY(0); } to{ transform: translateY(-5px) rotate(-2.5deg); } }
+  .walk .m .legL{ transform-box: view-box; transform-origin: 46px 90px; animation: ldStep .42s ease-in-out infinite alternate; }
+  .walk .m .legR{ transform-box: view-box; transform-origin: 74px 90px; animation: ldStep .42s ease-in-out infinite alternate-reverse; }
+  @keyframes ldStep{ from{ transform: rotate(-26deg); } to{ transform: rotate(24deg); } }
+  .walk .m .armL{ transform-box: view-box; transform-origin: 26px 68px; animation: ldSwing .42s ease-in-out infinite alternate-reverse; }
+  .walk .m .armR{ transform-box: view-box; transform-origin: 94px 68px; animation: ldSwing .42s ease-in-out infinite alternate; }
+  @keyframes ldSwing{ from{ transform: rotate(-20deg); } to{ transform: rotate(20deg); } }
+  .bit{ position:absolute; width:var(--w); height:var(--w); margin: calc(var(--w) / -2); translate: calc(var(--px,0) * var(--d) * 1px) calc(var(--py,0) * var(--d) * 1px); transition: translate 1s var(--out); animation: ldBitIn .5s ease-out backwards; animation-delay: calc(var(--n) * 40ms); }
+  @keyframes ldBitIn{ from{ opacity:0; scale:.6; } }
+  .bit > i{ position:absolute; inset:0; display:block; animation: ldFloat var(--t) ease-in-out infinite alternate; animation-delay: var(--dl); }
+  .bit .ic{ filter: grayscale(1) opacity(.28); transition: filter .5s var(--out), transform .5s var(--spring); }
+  .bit.lit .ic{ filter:none; transform: scale(1.06); }
+  @keyframes ldFloat{ 0%{ transform: translate(-12px,-26px) rotate(var(--r0)) scale(.96); } 50%{ transform: translate(14px,4px) rotate(calc((var(--r0) + var(--r1)) / 2)) scale(1.04); } 100%{ transform: translate(-6px,26px) rotate(var(--r1)) scale(.98); } }
+  .spark{ position:absolute; width:12px; height:12px; margin:-6px; animation: ldSpark .7s var(--out) forwards; }
+  .spark::before{ content:""; position:absolute; inset:0; background: var(--sc, var(--ink)); clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%); }
+  @keyframes ldSpark{ from{ transform: translate(0,0) scale(.2); opacity:1; } to{ transform: translate(var(--dx), var(--dy)) scale(1) rotate(160deg); opacity:0; } }
+  @media (max-width: 760px){ .cap{ height:58px; padding-left:12px; } .cap input{ font-size:16px; } .go span{ display:none; } }
+  @media (prefers-reduced-motion: reduce){ *{ animation:none !important; transition:none !important; } }
 </style>
 </head>
 <body>
-<div class="pre" id="pre" aria-hidden="true">
-  <div class="mz" id="mz"><svg viewBox="0 0 120 110">
-    <path class="limb legL" d="M46 90 L44 104"/><path class="limb legR" d="M74 90 L76 104"/>
-    <path class="limb armL" d="M26 68 L12 82"/><path class="limb armR" d="M94 68 L108 82"/>
-    <g class="bob"><path class="body" d="M60 26 C88 26 102 46 102 66 C102 84 84 94 60 94 C36 94 18 84 18 66 C18 46 32 26 60 26 Z"/>
-    <ellipse class="eye" cx="46" cy="58" rx="11" ry="13"/><ellipse class="eye" cx="74" cy="58" rx="11" ry="13"/>
-    <circle class="pupil" cx="47" cy="60" r="5"/><circle class="pupil" cx="75" cy="60" r="5"/></g></svg></div>
-  <form class="cap" id="cap" onsubmit="return false"><span class="eyes"><i><b></b></i><i><b></b></i></span><input id="q" autocomplete="off" enterkeyhint="send" placeholder="想記什麼？隨手打一句" aria-label="快速記錄"></form>
-  <div class="bar" id="bar"><i></i></div>
-</div>
+<div class="ldr" id="ldr" aria-hidden="true"></div>
+<form class="cap" id="cap" onsubmit="return false"><span class="pip" aria-hidden="true"><i><b></b></i><i><b></b></i></span><input id="q" autocomplete="off" enterkeyhint="send" placeholder="想記什麼？隨手打一句" aria-label="快速記錄" autofocus><span class="go" aria-hidden="true"><span>分類</span><kbd>⏎</kbd></span></form>
+<div class="pbar" id="pbar"><i></i></div>
 <iframe id="app" src="https://script.google.com/macros/s/AKfycbzWwXaekaAM2dhdYNZxLVHnSFC4A_ylsMzLxaybFrgzqc0HREC3UF-O_7uO0JpAkbgyVw/exec" title="Allen’s Planner" allow="clipboard-write"></iframe>
 <script>
-  /* same geometry as the app's loader, so the hand-off lines up */
-  const pre=document.getElementById('pre'), mz=document.getElementById('mz'), cap=document.getElementById('cap'), bar=document.getElementById('bar'), q=document.getElementById('q');
-  function lay(){ const mobile=innerWidth<760, MW=Math.round(mobile?innerWidth*.5:Math.min(270,innerHeight*.3)), MH=MW*110/120, c=cap.getBoundingClientRect(), w=Math.min(220,c.width*.38);
-    mz.style.width=MW+'px'; mz.style.transform=`translate(${innerWidth/2-MW/2}px,${c.top-MH+MH*.06}px)`;
-    Object.assign(bar.style,{left:(c.left+c.width/2-w/2)+'px',top:(c.bottom+22)+'px',width:w+'px'}); }
-  lay(); addEventListener('resize',lay); q.focus();
-  let done=false; function hide(){ if(done) return; done=true; pre.classList.add('out'); setTimeout(()=>pre.remove(),400); }
-  addEventListener('message',e=>{ const d=e.data||{}; if(d.ld!=='up') return; if(!/(^https:\/\/[a-z0-9-]+\.googleusercontent\.com$)|(^https:\/\/script\.google\.com$)/.test(e.origin)) return;
-    if(q.value && e.source) e.source.postMessage({ld:'text', v:q.value},'*'); hide(); });
-  setTimeout(hide, 12000);   /* never get stuck on this layer */
+const T0=Date.now(), ICONS={"school":"<path class=\"a\" d=\"M5 12.5c6.5-3 12.5-2.8 19 1.2v26.5c-6.5-4-12.5-4.2-19-1.2z\"/><path class=\"b\" d=\"M43 12.5c-6.5-3-12.5-2.8-19 1.2v26.5c6.5-4 12.5-4.2 19-1.2z\"/><path class=\"sw\" d=\"M9.5 19.5c3.4-1 6.6-.8 10 .6M9.5 26c3.4-1 6.6-.8 10 .6\"/><path class=\"d\" d=\"M32.5 10.6v10.8l3.2-2.6 3.3 2.6V11.2c-2.2-.6-4.3-.8-6.5-.6z\"/>","mac":"<rect class=\"d\" x=\"8.500\" y=\"8\" width=\"31\" height=\"23\" rx=\"4\"/><rect class=\"b\" x=\"11.800\" y=\"11.300\" width=\"24.400\" height=\"16.400\" rx=\"1.800\"/><path class=\"s\" d=\"M19.500 17v2.200M28.500 17v2.200M20.500 22.300c2.200 1.700 4.800 1.700 7 0\" stroke-width=\"2.200\"/><path class=\"a\" d=\"M3.500 33.500h41l-2.300 5a3.200 3.200 0 0 1-2.900 1.900H8.700a3.200 3.200 0 0 1-2.900-1.900z\"/><rect class=\"w\" x=\"20\" y=\"35.500\" width=\"8\" height=\"2\" rx=\"1\" opacity=\".7\"/>","tutor":"<g transform=\"rotate(42 24 24)\"><rect class=\"a\" x=\"18.5\" y=\"5\" width=\"11\" height=\"27\" rx=\"2.5\"/><rect class=\"d\" x=\"18.5\" y=\"5\" width=\"11\" height=\"7\" rx=\"2.5\"/><path class=\"b\" d=\"M18.5 32h11L24 42.5z\"/><path class=\"d\" d=\"M22.2 39h3.6L24 42.5z\"/><path class=\"sw\" d=\"M24 15v13\"/></g>","apex":"<path class=\"a\" d=\"M3.5 40.5 17.5 15a1.6 1.6 0 0 1 2.8-.1l6.6 10.6 3.5-5a1.6 1.6 0 0 1 2.7.1l11.4 19.9z\"/><path class=\"w\" d=\"M18.9 15.2l4.3 6.9-3 2.3-2.6-2.3-3.2 2.7z\" opacity=\".92\"/><path class=\"s\" d=\"M31.5 19.5V7.5\"/><path class=\"d\" d=\"M31.5 7l8.2 3.2-8.2 3.6z\"/>","senior":"<g transform=\"rotate(32 24 24)\"><path class=\"b\" d=\"M19.5 33h9c0 5.2-2.2 8.2-4.5 11.5-2.300-3.300-4.500-6.300-4.500-11.5z\"/><path class=\"d\" d=\"M16 23.500 8.500 33.500l8.500-1.300zM32 23.500l7.500 10-8.500-1.300z\"/><path class=\"a\" d=\"M24 3c8.500 6.200 10.600 16.800 8.400 28H15.600C13.400 19.800 15.500 9.200 24 3z\"/><circle class=\"w\" cx=\"24\" cy=\"17.500\" r=\"4.800\"/><circle class=\"d\" cx=\"24\" cy=\"17.500\" r=\"2.300\"/></g>","exchange":"<path class=\"a\" d=\"M4 21.500 41.500 5.300a1.400 1.400 0 0 1 1.900 1.700L31.800 41.500a1.400 1.400 0 0 1-2.500.3l-6.800-12.300z\"/><path class=\"d\" d=\"M43 6 22.500 29.500l-1.800 10.300a1 1 0 0 0 1.800.7l4-5.700z\"/><path class=\"s\" d=\"M5 35.500c3.500 2.800 7.500 3 11 .5\" stroke-dasharray=\"1 5.500\" opacity=\".7\"/>","ai":"<path class=\"a\" d=\"M20.500 5.500c1.500 9.500 5.300 13.300 14.800 14.800-9.500 1.500-13.300 5.300-14.800 14.800-1.500-9.500-5.300-13.300-14.800-14.800 9.500-1.500 13.300-5.300 14.800-14.800z\"/><path class=\"d\" d=\"M37 27.500c.8 4.300 2.500 6 6.800 6.800-4.300.8-6 2.500-6.800 6.800-.8-4.300-2.500-6-6.800-6.800 4.300-.8 6-2.500 6.800-6.800z\"/><circle class=\"b\" cx=\"38.500\" cy=\"10\" r=\"3\"/>","stocks":"<rect class=\"b\" x=\"6\" y=\"27\" width=\"9\" height=\"15\" rx=\"3\"/><rect class=\"a\" x=\"19.500\" y=\"19\" width=\"9\" height=\"23\" rx=\"3\"/><rect class=\"d\" x=\"33\" y=\"10\" width=\"9\" height=\"32\" rx=\"3\"/><circle class=\"a\" cx=\"12\" cy=\"13\" r=\"6.500\"/><path class=\"sw\" d=\"M12 10v6\" opacity=\"1\"/>","misc":"<path class=\"a\" d=\"M7 18h34v19.500a4 4 0 0 1-4 4H11a4 4 0 0 1-4-4z\"/><rect class=\"d\" x=\"3.500\" y=\"9\" width=\"41\" height=\"10.500\" rx=\"3.500\"/><rect class=\"w\" x=\"18\" y=\"25\" width=\"12\" height=\"4.600\" rx=\"2.300\" opacity=\".85\"/>"}, KEYS=Object.keys(ICONS);
+const L=document.getElementById('ldr'), cap=document.getElementById('cap'), pbar=document.getElementById('pbar'), q=document.getElementById('q');
+const mobile=innerWidth<760, MW=Math.round(mobile?innerWidth*.5:Math.min(270,innerHeight*.3)), MH=MW*110/120;
+const capR=()=>cap.getBoundingClientRect();
+/* mascot */
+const MZ=document.createElement('div'); MZ.className='mz walk'; MZ.style.width=MW+'px';
+MZ.innerHTML=`<svg class="m" viewBox="0 0 120 110"><path class="limb legL" d="M46 90 L44 104"/><path class="limb legR" d="M74 90 L76 104"/><path class="limb armL" d="M26 68 L12 82"/><path class="limb armR" d="M94 68 L108 82"/>
+  <g class="bob"><path class="body" d="M60 26 C88 26 102 46 102 66 C102 84 84 94 60 94 C36 94 18 84 18 66 C18 46 32 26 60 26 Z"/><g class="lid"><ellipse class="eye" cx="46" cy="58" rx="11" ry="13"/><ellipse class="eye" cx="74" cy="58" rx="11" ry="13"/></g>
+  <g class="pupils"><circle class="pupil" cx="47" cy="60" r="5"/><circle class="pupil" cx="75" cy="60" r="5"/></g></g></svg>`;
+L.append(MZ);
+/* the nine section icons, same spots, sizes and timing as app/loader.html */
+const spots= mobile ? [[12,14],[50,8],[86,15],[10,34],[90,36],[14,74],[86,72],[34,90],[68,90]] : [[10,18],[30,9],[70,9],[90,20],[7,52],[93,52],[13,84],[50,90],[87,82]];
+const bits=KEYS.map((k,i)=>{ const b=document.createElement('span'), w=(mobile?58:96)+(i%3)*(mobile?10:18);
+  b.className='bit'; b.dataset.s=k; b.style.cssText=`left:${spots[i][0]}%;top:${spots[i][1]}%;--w:${w}px;--d:${(.4+(i%4)*.3).toFixed(2)};--t:${3.6+i%4*.7}s;--dl:${-i*.8}s;--r0:${-14-i*2}deg;--r1:${12+i*2}deg;--n:${i}`;
+  b.innerHTML=`<i><svg class="ic" viewBox="0 0 48 48" aria-hidden="true">${ICONS[k]}</svg></i>`; L.append(b); return b; });
+let px=0, py=0;
+addEventListener('pointermove',e=>{ px=-(e.clientX/innerWidth-.5)*70; py=-(e.clientY/innerHeight-.5)*46; L.style.setProperty('--px',px.toFixed(1)); L.style.setProperty('--py',py.toFixed(1)); });
+function lay(){ const c=capR(), w=Math.min(220,c.width*.38); MZ.style.transform=`translate(${innerWidth/2-MW/2}px,${c.top-MH+MH*.06}px)`;
+  Object.assign(pbar.style,{left:(c.left+c.width/2-w/2)+'px',top:(c.bottom+22)+'px',width:w+'px'}); }
+lay(); addEventListener('resize',lay);
+/* progress: the same formula as the app, so the bar never jumps when it takes over */
+let p=0, lit=0, last=performance.now(), raf;
+function spark(x,y,dx,dy,col){ const s=document.createElement('i'); s.className='spark'; s.style.left=x+'px'; s.style.top=y+'px'; s.style.setProperty('--dx',dx+'px'); s.style.setProperty('--dy',dy+'px'); s.style.setProperty('--sc',col); L.append(s); setTimeout(()=>s.remove(),900); }
+function tick(t){ const dt=Math.min(50,t-last); last=t; p=Math.max(p,.9*(1-Math.exp(-(Date.now()-T0)/1400))); pbar.style.setProperty('--p',p.toFixed(3));
+  const n=Math.min(bits.length,Math.floor(p*bits.length+.0001)); while(lit<n){ const b=bits[lit++]; b.classList.add('lit'); const r=b.getBoundingClientRect(), cx=r.left+r.width/2, cy=r.top+r.height/2, col=getComputedStyle(b).getPropertyValue('--c');
+    for(let k=0;k<6;k++){ const a=k/6*6.283; spark(cx,cy,Math.cos(a)*r.width*.7,Math.sin(a)*r.width*.7,col); } }
+  raf=requestAnimationFrame(tick); }
+raf=requestAnimationFrame(tick);
+/* hand-off */
+let gone=false; function hide(){ if(gone) return; gone=true; cancelAnimationFrame(raf); [L,cap,pbar].forEach(x=>x.classList.add('out')); cap.style.transition=pbar.style.transition='opacity .14s linear'; cap.style.opacity=pbar.style.opacity=0; setTimeout(()=>{ L.remove(); cap.remove(); pbar.remove(); },300); }
+const OK=/(^https:\/\/[a-z0-9-]+\.googleusercontent\.com$)|(^https:\/\/script\.google\.com$)/;
+addEventListener('message',e=>{ const d=e.data||{}; if(!OK.test(e.origin)) return;
+  if(d.ld==='up' && e.source) e.source.postMessage({ld:'sync', t0:T0, p, px, py, v:q.value},'*');
+  if(d.ld==='ready') requestAnimationFrame(()=>requestAnimationFrame(hide)); });
+setTimeout(hide, 15000);   /* never get stuck on this layer */
 </script>
 </body>
 </html>
